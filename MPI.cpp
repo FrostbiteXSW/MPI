@@ -21,7 +21,7 @@ enum tags {
 	calc_mat_c
 };
 
-void MainProc(const int proc_cnt, const int proc_id) {
+void MainProc(const int proc_cnt) {
 	MPI_Status status;
 
 	// 设置随机因子
@@ -41,7 +41,7 @@ void MainProc(const int proc_cnt, const int proc_id) {
 
 	// 主进程生成最后一块矩阵元素
 #pragma omp parallel for shared(a) shared(b)
-	for (auto i = MAT_SIZE / proc_cnt * proc_id; i < MAT_SIZE; ++i) {
+	for (auto i = MAT_SIZE / proc_cnt * (proc_cnt - 1); i < MAT_SIZE; ++i) {
 		a[i] = new int[MAT_SIZE];
 		b[i] = new int[MAT_SIZE];
 		c[i] = new int[MAT_SIZE]{0};
@@ -52,7 +52,7 @@ void MainProc(const int proc_cnt, const int proc_id) {
 	}
 
 	// 收取子进程生成矩阵元素
-	for (auto pid = 0; pid < proc_id; ++pid) {
+	for (auto pid = 0; pid < proc_cnt - 1; ++pid) {
 		for (auto i = MAT_SIZE / proc_cnt * pid; i < MAT_SIZE / proc_cnt * (pid + 1); ++i) {
 			a[i] = new int[MAT_SIZE];
 			b[i] = new int[MAT_SIZE];
@@ -62,7 +62,7 @@ void MainProc(const int proc_cnt, const int proc_id) {
 	}
 
 	// 发送矩阵信息到子进程		
-	for (auto pid = 0; pid < proc_id; ++pid) {
+	for (auto pid = 0; pid < proc_cnt - 1; ++pid) {
 		for (auto i = 0; i < MAT_SIZE; ++i) {
 			MPI_Send(a[i], MAT_SIZE, MPI_INT, pid, send_mat_a, MPI_COMM_WORLD);
 			MPI_Send(b[i], MAT_SIZE, MPI_INT, pid, send_mat_b, MPI_COMM_WORLD);
@@ -71,7 +71,7 @@ void MainProc(const int proc_cnt, const int proc_id) {
 
 	// 主进程计算最后一块矩阵乘积		
 #pragma omp parallel for shared(a) shared(b) shared(c)
-	for (auto i = MAT_SIZE / proc_cnt * proc_id; i < MAT_SIZE; ++i) {
+	for (auto i = MAT_SIZE / proc_cnt * (proc_cnt - 1); i < MAT_SIZE; ++i) {
 		for (auto j = 0; j < MAT_SIZE; ++j) {
 			for (auto k = 0; k < MAT_SIZE; ++k) {
 				c[i][j] += a[i][k] * b[k][j];
@@ -80,7 +80,7 @@ void MainProc(const int proc_cnt, const int proc_id) {
 	}
 
 	// 收取子进程计算矩阵乘积结果
-	for (auto pid = 0; pid < proc_id; ++pid) {
+	for (auto pid = 0; pid < proc_cnt - 1; ++pid) {
 		for (auto i = MAT_SIZE / proc_cnt * pid; i < MAT_SIZE / proc_cnt * (pid + 1); ++i) {
 			c[i] = new int[MAT_SIZE];
 			MPI_Recv(c[i], MAT_SIZE, MPI_INT, pid, calc_mat_c, MPI_COMM_WORLD, &status);
@@ -191,7 +191,7 @@ int main(int argc, char* argv[]) {
 
 	if (procId == procCnt - 1) {
 		// 最后一个进程为主进程
-		MainProc(procCnt, procId);
+		MainProc(procCnt);
 	}
 	else {
 		// 其他进程为子进程
