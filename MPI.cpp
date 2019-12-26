@@ -29,7 +29,6 @@ void MainProc(const int proc_cnt) {
 	default_random_engine rand(timeNow);
 	const uniform_int_distribution<unsigned> dist(1, MAX_NUM);
 
-
 	// 输出每进程的线程数
 	cout << "Threads per process: " << omp_get_max_threads() << endl;
 
